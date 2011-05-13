@@ -1,0 +1,7 @@
+Fake SMTP server to relay any message to a specific mail account via a
+specific MTA.
+
+Usage:
+
+  $ perl resmtp.pl [-h <listen_host>] [-p <listen_port>] <recipient@example.net> [<smtp_host[:port]>]
+
