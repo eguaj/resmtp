@@ -2,6 +2,8 @@
 
 use strict;
 use warnings;
+use POSIX qw(setsid);
+use File::Basename;
 use Getopt::Long;
 use Net::SMTP;
 use Net::SMTP::Server;
@@ -9,14 +11,28 @@ use Net::SMTP::Server::Client;
 use Net::DNS;
 
 sub usage() {
-	print STDERR "Usage: $0 [-h <listen_host>] [-p <listen_port>] <recipient\@example.net> [<smtp_host[:port]>]\n";
+	print STDERR "Usage: $0 [-d|--daemon] [-h|--host <listen_host>] [-p|--port <listen_port>] <recipient\@example.net> [<smtp_host[:port]>]\n";
+}
+
+sub daemonize {
+	$0 = File::Basename::basename($0);
+	chdir '/'               or die "Can't chdir to /: $!";
+	open STDIN, '/dev/null' or die "Can't read /dev/null: $!";
+	open STDOUT, '>/dev/null'
+		       or die "Can't write to /dev/null: $!";
+	defined(my $pid = fork) or die "Can't fork: $!";
+	exit if $pid;
+	die "Can't start a new session: $!" if setsid == -1;
+	open STDERR, '>&STDOUT' or die "Can't dup stdout: $!";
 }
 
 my $listen_host = 'localhost';
 my $listen_port = 25;
+my $run_as_daemon = 0;
 my $ret = GetOptions(
-	'h=s' => \$listen_host,
-	'p=s' => \$listen_port
+	'h|host=s' => \$listen_host,
+	'p|port=s' => \$listen_port,
+	'd|daemon' => \$run_as_daemon
 	);
 if( ! $ret ) {
 	die usage();
@@ -35,6 +51,9 @@ if( not defined $smtp_host ) {
 my $server = new Net::SMTP::Server($listen_host, $listen_port);
 if( not $server ) {
 	die sprintf("Error: could not start SMTP server on <%s:%s>: %s\n", $listen_host, $listen_port, $!);
+}
+if( $run_as_daemon ) {
+	daemonize();
 }
 print STDERR sprintf("Waiting for Godot on <%s:%s>...\n", $listen_host, $listen_port);
 
