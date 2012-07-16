@@ -29,10 +29,12 @@ sub daemonize {
 my $listen_host = 'localhost';
 my $listen_port = 25;
 my $run_as_daemon = 0;
+my $timeout = 15;
 my $ret = GetOptions(
 	'h|host=s' => \$listen_host,
 	'p|port=s' => \$listen_port,
-	'd|daemon' => \$run_as_daemon
+	'd|daemon' => \$run_as_daemon,
+	't|timeout=i' => \$timeout
 	);
 if( ! $ret ) {
 	die usage();
@@ -66,7 +68,11 @@ while( $conn = $server->accept() ) {
 	}
 	$client->process || next;
 	print STDERR sprintf("Relaying message from '%s' to '%s' via '%s' (original recipient = '%s')... ", $client->{FROM}, $to, $smtp_host, join(', ', @{ $client->{TO} }));
-	$smtp = new Net::SMTP($smtp_host, Timeout => 60);
+	$smtp = new Net::SMTP($smtp_host, Timeout => $timeout);
+	if( not $smtp) {
+		print STDERR sprintf("Error: could not connect to SMTP host '%s': %s\n", $smtp_host, $!);
+		next;
+	}
 	$smtp->mail($client->{FROM});
 	$smtp->to($to);
 	$smtp->data($client->{MSG});
