@@ -2,7 +2,7 @@
 
 use strict;
 use warnings;
-use POSIX qw(setsid);
+use POSIX qw(setsid strftime);
 use File::Basename;
 use Getopt::Long;
 use Net::SMTP;
@@ -67,7 +67,7 @@ while( $conn = $server->accept() ) {
 		next;
 	}
 	$client->process || next;
-	print STDERR sprintf("Relaying message from '%s' to '%s' via '%s' (original recipient = '%s')... ", $client->{FROM}, $to, $smtp_host, join(', ', @{ $client->{TO} }));
+	print STDERR sprintf("%s Relaying message from '%s' to '%s' via '%s' (original recipient = '%s')... ", strftime("%FT%T%z", localtime(time())), $client->{FROM}, $to, $smtp_host, join(', ', @{ $client->{TO} }));
 	$smtp = new Net::SMTP($smtp_host, Timeout => $timeout);
 	if( not $smtp) {
 		print STDERR sprintf("Error: could not connect to SMTP host '%s': %s\n", $smtp_host, $!);
