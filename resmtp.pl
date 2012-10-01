@@ -11,7 +11,7 @@ use Net::SMTP::Server::Client;
 use Net::DNS;
 
 sub usage() {
-	print STDERR "Usage: $0 [-d|--daemon] [-h|--host <listen_host>] [-p|--port <listen_port>] [-b|--blackhole] <recipient\@example.net> [<smtp_host[:port]>]\n";
+	print STDERR "Usage: $0 [-d|--daemon] [-h|--host <listen_host>] [-p|--port <listen_port>] [-t|--timeout <timeout_in_seconds>] [-b|--blackhole] <recipient\@example.net> [<smtp_host[:port]>]\n";
 }
 
 sub daemonize {

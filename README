@@ -3,5 +3,5 @@ specific MTA.
 
 Usage:
 
-  $ perl resmtp.pl [-d|--daemon] [-h|--host <listen_host>] [-p|--port <listen_port>] <recipient@example.net> [<smtp_host[:port]>]
+  $ perl resmtp.pl [-d|--daemon] [-h|--host <listen_host>] [-p|--port <listen_port>] [-t|--timeout <timeout_in_seconds>] [-b|--blackhole] <recipient@example.net> [<smtp_host[:port]>]
 
