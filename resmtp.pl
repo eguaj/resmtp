@@ -11,7 +11,7 @@ use Net::SMTP::Server::Client;
 use Net::DNS;
 
 sub usage() {
-	print STDERR "Usage: $0 [-d|--daemon] [-h|--host <listen_host>] [-p|--port <listen_port>] <recipient\@example.net> [<smtp_host[:port]>]\n";
+	print STDERR "Usage: $0 [-d|--daemon] [-h|--host <listen_host>] [-p|--port <listen_port>] [-b|--blackhole] <recipient\@example.net> [<smtp_host[:port]>]\n";
 }
 
 sub daemonize {
@@ -30,24 +30,29 @@ my $listen_host = 'localhost';
 my $listen_port = 25;
 my $run_as_daemon = 0;
 my $timeout = 15;
+my $blackhole = 0;
 my $ret = GetOptions(
 	'h|host=s' => \$listen_host,
 	'p|port=s' => \$listen_port,
 	'd|daemon' => \$run_as_daemon,
-	't|timeout=i' => \$timeout
+	't|timeout=i' => \$timeout,
+	'b|blackhole' => \$blackhole
 	);
 if( ! $ret ) {
 	die usage();
 }
 
-my $to = shift || die usage();
-my $smtp_host = shift;
-if( not defined $smtp_host ) {
-	my $res = Net::DNS::Resolver->new;
-	my ($domain) = ($to =~ m/^.*@([^@]+)$/);
-	my @mx = mx($res, $domain);
-	die sprintf("Error: could not find MXs for domain '%s'!\n", $domain) if( $#mx <= 0 );
-	$smtp_host = $mx[0]->exchange;
+my ($to, $smtp_host);
+if( not $blackhole ) {
+	$to = shift || die usage();
+	$smtp_host = shift;
+	if( not defined $smtp_host ) {
+		my $res = Net::DNS::Resolver->new;
+		my ($domain) = ($to =~ m/^.*@([^@]+)$/);
+		my @mx = mx($res, $domain);
+		die sprintf("Error: could not find MXs for domain '%s'!\n", $domain) if( $#mx <= 0 );
+		$smtp_host = $mx[0]->exchange;
+	}
 }
 
 my $server = new Net::SMTP::Server($listen_host, $listen_port);
@@ -67,6 +72,10 @@ while( $conn = $server->accept() ) {
 		next;
 	}
 	$client->process || next;
+	if( $blackhole ) {
+		print STDERR sprintf("%s Blackholing message from '%s' (original recipient = '%s')... Done.\n", strftime("%FT%T%z", localtime(time())), $client->{FROM}, join(', ', @{ $client->{TO} }));
+		next;
+	}
 	print STDERR sprintf("%s Relaying message from '%s' to '%s' via '%s' (original recipient = '%s')... ", strftime("%FT%T%z", localtime(time())), $client->{FROM}, $to, $smtp_host, join(', ', @{ $client->{TO} }));
 	$smtp = new Net::SMTP($smtp_host, Timeout => $timeout);
 	if( not $smtp) {
