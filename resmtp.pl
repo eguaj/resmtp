@@ -11,7 +11,7 @@ use Net::SMTP::Server::Client;
 use Net::DNS;
 
 sub usage() {
-	print STDERR "Usage: $0 [-d|--daemon] [-h|--host <listen_host>] [-p|--port <listen_port>] [-t|--timeout <timeout_in_seconds>] [-b|--blackhole] <recipient\@example.net> [<smtp_host[:port]>]\n";
+	print STDERR "Usage: $0 [-d|--daemon] [-h|--host <listen_host>] [-p|--port <listen_port>] [-t|--timeout <timeout_in_seconds>] [-b|--blackhole] [-f|--from <smtp-from\@example.net>] <recipient\@example.net> [<smtp_host[:port]>]\n";
 }
 
 sub daemonize {
@@ -31,12 +31,14 @@ my $listen_port = 25;
 my $run_as_daemon = 0;
 my $timeout = 15;
 my $blackhole = 0;
+my $from = undef;
 my $ret = GetOptions(
 	'h|host=s' => \$listen_host,
 	'p|port=s' => \$listen_port,
 	'd|daemon' => \$run_as_daemon,
 	't|timeout=i' => \$timeout,
-	'b|blackhole' => \$blackhole
+	'b|blackhole' => \$blackhole,
+	'f|from=s' => \$from
 	);
 if( ! $ret ) {
 	die usage();
@@ -82,7 +84,10 @@ while( $conn = $server->accept() ) {
 		print STDERR sprintf("Error: could not connect to SMTP host '%s': %s\n", $smtp_host, $!);
 		next;
 	}
-	$smtp->mail($client->{FROM});
+	if (not defined $from) {
+		$from = $client->{FROM};
+	}
+	$smtp->mail($from);
 	$smtp->to($to);
 	$smtp->data($client->{MSG});
 	$smtp->dataend();
