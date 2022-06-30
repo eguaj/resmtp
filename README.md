@@ -15,7 +15,7 @@ MTA.
 
 # Sample systemd service file
 
-    # cat <<'EOF' > /etc/systemd/system/resmtp.service
+    # cat <<'EOF' > /usr/lib/systemd/system/resmtp.service
     [Unit]
     Description=resmtp Service
     After=network.target
