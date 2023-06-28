@@ -11,7 +11,7 @@ MTA.
       [-t|--timeout <timeout_in_seconds>] \
       [-b|--blackhole] \
       [-f|--from <smtp.mail.from@example.net>] \
-      <recipient@example.net> [<smtp_host[:port]>]
+      <recipient@example.net>[,<recipient2@example.net>,[...]] [<smtp_host[:port]>]
 
 # Sample systemd service file
 

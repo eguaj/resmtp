@@ -11,7 +11,7 @@ use Net::SMTP::Server::Client;
 use Net::DNS;
 
 sub usage() {
-	print STDERR "Usage: $0 [-d|--daemon] [-h|--host <listen_host>] [-p|--port <listen_port>] [-t|--timeout <timeout_in_seconds>] [-b|--blackhole] [-f|--from <smtp-from\@example.net>] <recipient\@example.net> [<smtp_host[:port]>]\n";
+	print STDERR "Usage: $0 [-d|--daemon] [-h|--host <listen_host>] [-p|--port <listen_port>] [-t|--timeout <timeout_in_seconds>] [-b|--blackhole] [-f|--from <smtp-from\@example.net>] <recipient\@example.net>[,<recipient2\@example.net>,[...]] [<smtp_host[:port]>]\n";
 }
 
 sub daemonize {
@@ -44,18 +44,12 @@ if( ! $ret ) {
 	die usage();
 }
 
-my ($to, $smtp_host);
+my ($recipients, $smtp_host);
 if( not $blackhole ) {
-	$to = shift || die usage();
+	$recipients = shift || die usage();
 	$smtp_host = shift;
-	if( not defined $smtp_host ) {
-		my $res = Net::DNS::Resolver->new;
-		my ($domain) = ($to =~ m/^.*@([^@]+)$/);
-		my @mx = mx($res, $domain);
-		die sprintf("Error: could not find MXs for domain '%s'!\n", $domain) if( $#mx <= 0 );
-		$smtp_host = $mx[0]->exchange;
-	}
 }
+my @recipientList = split(/\s*,\s*/, $recipients);
 
 my $server = new Net::SMTP::Server($listen_host, $listen_port);
 if( not $server ) {
@@ -78,19 +72,31 @@ while( $conn = $server->accept() ) {
 		print STDERR sprintf("%s Blackholing message from '%s' (original recipient = '%s')... Done.\n", strftime("%FT%T%z", localtime(time())), $client->{FROM}, join(', ', @{ $client->{TO} }));
 		next;
 	}
-	print STDERR sprintf("%s Relaying message from '%s' to '%s' via '%s' (original recipient = '%s')... ", strftime("%FT%T%z", localtime(time())), $client->{FROM}, $to, $smtp_host, join(', ', @{ $client->{TO} }));
-	$smtp = new Net::SMTP($smtp_host, Timeout => $timeout);
-	if( not $smtp) {
-		print STDERR sprintf("Error: could not connect to SMTP host '%s': %s\n", $smtp_host, $!);
-		next;
+
+	foreach my $to (@recipientList) {
+		my $recipient_smtp_host = $smtp_host;
+		if( not defined $recipient_smtp_host ) {
+			my $res = Net::DNS::Resolver->new;
+			my ($domain) = ($to =~ m/^.*@([^@]+)$/);
+			my @mx = mx($res, $domain);
+			die sprintf("Error: could not find MXs for domain '%s'!\n", $domain) if( $#mx <= 0 );
+			$recipient_smtp_host = $mx[0]->exchange;
+		}
+
+		print STDERR sprintf("%s Relaying message from '%s' to '%s' via '%s' (original recipient = '%s')... ", strftime("%FT%T%z", localtime(time())), $client->{FROM}, $to, $recipient_smtp_host, join(', ', @{ $client->{TO} }));
+		$smtp = new Net::SMTP($recipient_smtp_host, Timeout => $timeout);
+		if( not $smtp) {
+			print STDERR sprintf("Error: could not connect to SMTP host '%s': %s\n", $recipient_smtp_host, $!);
+			next;
+		}
+		if (not defined $from) {
+			$from = $client->{FROM};
+		}
+		$smtp->mail($from);
+		$smtp->to($to);
+		$smtp->data($client->{MSG});
+		$smtp->dataend();
+		$smtp->quit();
+		print STDERR sprintf("Done.\n");
 	}
-	if (not defined $from) {
-		$from = $client->{FROM};
-	}
-	$smtp->mail($from);
-	$smtp->to($to);
-	$smtp->data($client->{MSG});
-	$smtp->dataend();
-	$smtp->quit();
-	print STDERR sprintf("Done.\n");
 }
