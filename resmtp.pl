@@ -60,7 +60,7 @@ if( $run_as_daemon ) {
 }
 print STDERR sprintf("Waiting for Godot on <%s:%s>...\n", $listen_host, $listen_port);
 
-my ($conn, $client, $smtp);
+my ($conn, $client, $smtp, $msg, $headers, $body);
 while( $conn = $server->accept() ) {
 	$client = new Net::SMTP::Server::Client($conn);
 	if( not $client ) {
@@ -71,6 +71,15 @@ while( $conn = $server->accept() ) {
 	if( $blackhole ) {
 		print STDERR sprintf("%s Blackholing message from '%s' (original recipient = '%s')... Done.\n", strftime("%FT%T%z", localtime(time())), $client->{FROM}, join(', ', @{ $client->{TO} }));
 		next;
+	}
+
+	$msg = $client->{MSG};
+	if (defined $from) {
+		($headers, $body) = ($msg =~ m/^(.*?)(\r?\n\r?\n.*)$/ms);
+		$headers =~ s/^From:\s*(.+(?:\r?\n\s+.+)*)/From: $from\nX-Original-From: $1/m;
+		$msg = $headers . $body;
+	} else {
+		$from = $client->{FROM};
 	}
 
 	foreach my $to (@recipientList) {
@@ -89,12 +98,9 @@ while( $conn = $server->accept() ) {
 			print STDERR sprintf("Error: could not connect to SMTP host '%s': %s\n", $recipient_smtp_host, $!);
 			next;
 		}
-		if (not defined $from) {
-			$from = $client->{FROM};
-		}
 		$smtp->mail($from);
 		$smtp->to($to);
-		$smtp->data($client->{MSG});
+		$smtp->data($msg);
 		$smtp->dataend();
 		$smtp->quit();
 		print STDERR sprintf("Done.\n");
