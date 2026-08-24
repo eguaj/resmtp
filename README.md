@@ -22,6 +22,8 @@ MTA.
     
     [Service]
     Type=simple
+    User=nobody
+    AmbientCapabilities=CAP_NET_BIND_SERVICE
     ExecStart=/usr/local/bin/resmtp.pl --host 127.0.0.1 --port 25 recipient@example.net
     Restart=on-abort
     
